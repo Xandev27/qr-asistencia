@@ -20,8 +20,6 @@ import {
   Filter,
 } from "lucide-react";
 
-import { AdminDashboard } from "./AdminDashboard";
-
 // --- DATOS FICTICIOS (MOCK DATA) ---
 const WEEKLY_DATA = [
   {
@@ -100,7 +98,7 @@ export default function AdminAttendanceDashboard() {
   }, [currentData]);
 
   // Color de barra dinámico según desempeño
-  const getBarColor = (percentage) => {
+  const getBarColor = (percentage: number) => {
     if (percentage >= 90) return "#10B981"; // Verde (Excelente)
     if (percentage >= 75) return "#F59E0B"; // Amarillo/Naranja (Aceptable)
     return "#EF4444"; // Rojo (Crítico)
