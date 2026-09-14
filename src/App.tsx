@@ -16,8 +16,10 @@ import SidebarLayout from "./components/NavBar";
 import PrintableQRCard from "./components/PrintableQRCard";
 import { AdminDependencias } from "./components/AdminDependencias";
 import DirectAttendanceHandler from "./components/DirectAttendanceHandler";
+import Login from "./components/Login";
+import { Trash2 } from "lucide-react";
 
-// Componente Layout para envolver las páginas administrativas con el Sidebar
+// Layout para sub-rutas administrativas
 function AdminLayout({
   user,
   onLogout,
@@ -27,7 +29,6 @@ function AdminLayout({
 }) {
   return (
     <SidebarLayout user={user} onLogout={onLogout}>
-      {/* Outlet renderiza la sub-ruta activa (/admin/dashboard, /admin/dependencias, etc.) */}
       <Outlet />
     </SidebarLayout>
   );
@@ -44,68 +45,80 @@ function AppRoutes({
 
   const handleLogoutAndRedirect = () => {
     localStorage.removeItem("user_session");
+    localStorage.removeItem("pending_qr_token");
     setUser(null);
     navigate("/login", { replace: true });
   };
 
   return (
     <Routes>
-      {/* Ruta de Login */}
+      {/* RUTA LOGIN */}
       <Route
         path="/login"
         element={
-          <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-            <div className="bg-white p-8 rounded-2xl shadow-lg text-center max-w-sm w-full space-y-3">
-              <h1 className="text-xl font-bold text-slate-800">
-                Prueba de Roles
+          <Login
+            onLoginSuccess={(session) => {
+              localStorage.setItem("user_session", JSON.stringify(session));
+              setUser(session);
+            }}
+          />
+        }
+      />
+
+      {/* RUTA DE PRUEBA DE ROLES */}
+      <Route
+        path="/test"
+        element={
+          <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+            <div className="bg-slate-800 border border-slate-700 p-8 rounded-3xl shadow-2xl text-center max-w-sm w-full space-y-4">
+              <h1 className="text-xl font-bold text-white">
+                Selector de Roles (Test)
               </h1>
+              <p className="text-xs text-slate-400">
+                Selecciona una sesión para simular la persistencia
+              </p>
               <button
                 onClick={() => {
                   const adminSession: UserSession = {
-                    id: "1",
-                    name: "Admin",
-                    token: "xyz",
+                    id: "usr_admin_01",
+                    email: "admin@test.com",
                     role: "admin",
+                    name: "Superusuario Admin",
                   };
-                  localStorage.setItem(
-                    "user_session",
-                    JSON.stringify(adminSession),
-                  );
+                  localStorage.setItem("user_session", JSON.stringify(adminSession));
                   setUser(adminSession);
                   navigate("/admin/dashboard", { replace: true });
                 }}
-                className="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-xs font-semibold transition-all"
               >
-                Superusuario
+                Ingresar como Superusuario
               </button>
+
               <button
                 onClick={() => {
                   const empleadoSession: UserSession = {
-                    id: "2",
-                    name: "Empleado",
-                    token: "xyz",
+                    id: "usr_emp_01",
+                    email: "empleado@test.com",
                     role: "empleado",
+                    name: "Juan Pérez",
                   };
-                  localStorage.setItem(
-                    "user_session",
-                    JSON.stringify(empleadoSession),
-                  );
+                  localStorage.setItem("user_session", JSON.stringify(empleadoSession));
                   setUser(empleadoSession);
                   navigate("/scan", { replace: true });
                 }}
-                className="w-full bg-slate-800 text-white py-2 rounded-lg text-sm font-medium hover:bg-slate-900 transition-colors"
+                className="w-full bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl text-xs font-semibold transition-all"
               >
-                Empleado
+                Ingresar como Empleado
               </button>
             </div>
           </div>
         }
       />
 
-      {/* Ruta receptora del escaneo directo del teléfono */}
+      {/* RECEPTOR DE ESCANEO DE QR DERECHO */}
       <Route path="/marcar" element={<DirectAttendanceHandler user={user} />} />
 
-      {/* Vista del Escáner (Empleado) */}
+      {/* VISTA ESCÁNER DE CAMARA (EMPLEADO) */}
       <Route
         path="/scan"
         element={
@@ -115,7 +128,7 @@ function AppRoutes({
         }
       />
 
-      {/* RUTA PROTEGIDA DE ADMINISTRACIÓN (Con Layout Anidado) */}
+      {/* RUTAS ROL ADMIN */}
       <Route
         path="/admin"
         element={
@@ -124,20 +137,14 @@ function AppRoutes({
           </ProtectedRoute>
         }
       >
-        {/* Redirección automática de /admin a /admin/dashboard */}
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
-
-        {/* Sub-rutas administrativas */}
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="asistencias" element={<AdminAttendanceDashboard />} />
-
-        {/* Aquí puedes seguir añadiendo más sub-rutas fácilmente: */}
         <Route path="dependencias" element={<AdminDependencias />} />
         <Route path="qr-cards" element={<PrintableQRCard />} />
-        {/* <Route path="configuracion" element={<AdminConfiguracion />} /> */}
       </Route>
 
-      {/* Catch-all Redirect */}
+      {/* REDIRECCIÓN GLOBAL SEGÚN ROL */}
       <Route
         path="*"
         element={
@@ -156,6 +163,7 @@ function AppRoutes({
 }
 
 export default function App() {
+  // Persistencia: Leer sesión desde localStorage al montar la app
   const [user, setUser] = useState<UserSession | null>(() => {
     const saved = localStorage.getItem("user_session");
     if (!saved) return null;
@@ -166,9 +174,31 @@ export default function App() {
     }
   });
 
+  // Botón DevTools de Prueba: Limpiar sesión local rápidamente
+  const handleClearTestSession = () => {
+    localStorage.clear();
+    setUser(null);
+    window.location.href = "/login";
+  };
+
   return (
     <BrowserRouter>
       <AppRoutes user={user} setUser={setUser} />
+
+      {/* WIDGET / BOTÓN FLOTANTE DE PRUEBAS (DEVTOOLS) */}
+      <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2 bg-slate-900/90 border border-slate-700/80 p-2 rounded-2xl shadow-xl backdrop-blur-md text-xs">
+        <div className="px-2 py-1 bg-slate-800 rounded-lg text-[10px] font-mono text-slate-300">
+          Rol: <span className="font-bold text-indigo-400">{user ? user.role : "Anónimo"}</span>
+        </div>
+        <button
+          onClick={handleClearTestSession}
+          title="Borrar sesión y reiniciar pruebas"
+          className="flex items-center gap-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-xl font-medium transition-all text-[11px]"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          <span>Reset Session</span>
+        </button>
+      </div>
     </BrowserRouter>
   );
 }

@@ -1,34 +1,43 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import type { Coordinates, AttendancePayload, UserSession } from '../types/attendance';
+import React, { useEffect, useState, useRef } from "react";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
+import type {
+  Coordinates,
+  AttendancePayload,
+  UserSession,
+} from "../types/attendance";
 
 interface QRScannerViewProps {
   onNavigateToLogin: () => void;
   apiEndpoint?: string;
 }
 
-export const QRScannerView: React.FC<QRScannerViewProps> = ({onNavigateToLogin, apiEndpoint = '/api/asistencia/registrar'}) => {
+export const QRScannerView: React.FC<QRScannerViewProps> = ({
+  onNavigateToLogin,
+  apiEndpoint = "/api/asistencia/registrar",
+}) => {
   // Estados de sesión
   const [session, setSession] = useState<UserSession | null>(null);
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   // Estados de retroalimentación
-  const [statusMessage, setStatusMessage] = useState<string>('Inicializando cámara...');
+  const [statusMessage, setStatusMessage] = useState<string>(
+    "Inicializando cámara...",
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Referencias para html5-qrcode
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
-  const scannerContainerId = 'qr-reader-container';
+  const scannerContainerId = "qr-reader-container";
 
   // 1. Verificación de Sesión Activa
   useEffect(() => {
     const checkAuth = () => {
-      const storedSession = localStorage.getItem('user_session');
+      const storedSession = localStorage.getItem("user_session");
 
       if (!storedSession) {
-        setErrorMessage('Sesión no encontrada. Redirigiendo al login...');
+        setErrorMessage("Sesión no encontrada. Redirigiendo al login...");
         setTimeout(() => onNavigateToLogin(), 1500);
         return;
       }
@@ -37,7 +46,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({onNavigateToLogin, 
         const parsedSession: UserSession = JSON.parse(storedSession);
         setSession(parsedSession);
       } catch (err) {
-        localStorage.removeItem('user_session');
+        localStorage.removeItem("user_session");
         onNavigateToLogin();
       } finally {
         setIsInitializing(false);
@@ -56,7 +65,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({onNavigateToLogin, 
       formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
       verbose: false,
     });
-    
+
     html5QrcodeRef.current = html5Qrcode;
 
     const qrConfig = {
@@ -67,7 +76,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({onNavigateToLogin, 
     // Iniciar la cámara trasera
     html5Qrcode
       .start(
-        { facingMode: 'environment' },
+        { facingMode: "environment" },
         qrConfig,
         (decodedText) => {
           // Callback cuando se lee un QR exitosamente
@@ -75,14 +84,16 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({onNavigateToLogin, 
         },
         () => {
           // Ignorar errores frame a frame por falta de QR en pantalla
-        }
+        },
       )
       .then(() => {
-        setStatusMessage('Apunta la cámara al código QR de la sede');
+        setStatusMessage("Apunta la cámara al código QR de la sede");
       })
       .catch((err) => {
-        console.error('Error al iniciar la cámara con html5-qrcode:', err);
-        setErrorMessage('No se pudo acceder a la cámara. Revisa los permisos de tu dispositivo.');
+        console.error("Error al iniciar la cámara con html5-qrcode:", err);
+        setErrorMessage(
+          "No se pudo acceder a la cámara. Revisa los permisos de tu dispositivo.",
+        );
       });
 
     // Cierre limpio de la cámara al desmontar el componente
@@ -91,7 +102,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({onNavigateToLogin, 
         html5QrcodeRef.current
           .stop()
           .then(() => html5QrcodeRef.current?.clear())
-          .catch((err) => console.error('Error al detener la cámara:', err));
+          .catch((err) => console.error("Error al detener la cámara:", err));
       }
     };
   }, [isInitializing, session]);
@@ -100,7 +111,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({onNavigateToLogin, 
   const getCurrentLocation = (): Promise<Coordinates> => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        reject(new Error('Geolocalización no soportada por el dispositivo.'));
+        reject(new Error("Geolocalización no soportada por el dispositivo."));
         return;
       }
 
@@ -115,80 +126,87 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({onNavigateToLogin, 
         (error) => {
           switch (error.code) {
             case error.PERMISSION_DENIED:
-              reject(new Error('Permiso GPS denegado. Es obligatorio para validar la asistencia.'));
+              reject(
+                new Error(
+                  "Permiso GPS denegado. Es obligatorio para validar la asistencia.",
+                ),
+              );
               break;
             case error.POSITION_UNAVAILABLE:
-              reject(new Error('Ubicación no disponible. Activa el GPS de tu dispositivo.'));
+              reject(
+                new Error(
+                  "Ubicación no disponible. Activa el GPS de tu dispositivo.",
+                ),
+              );
               break;
             case error.TIMEOUT:
-              reject(new Error('Tiempo de espera agotado al obtener el GPS. Intenta de nuevo.'));
+              reject(
+                new Error(
+                  "Tiempo de espera agotado al obtener el GPS. Intenta de nuevo.",
+                ),
+              );
               break;
             default:
-              reject(new Error('Error al obtener la geolocalización.'));
+              reject(new Error("Error al obtener la geolocalización."));
           }
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
       );
     });
   };
 
-  // 4. Procesamiento y Envío al Backend
+  // 4. MOCK: Procesamiento solo para Pruebas (Sin envío a Backend)
   const handleQrScanned = async (qrToken: string) => {
-    // Si ya se está procesando un escaneo previo, ignorar
     if (isProcessing) return;
 
     setIsProcessing(true);
     setErrorMessage(null);
-    setStatusMessage('QR detectado. Obteniendo ubicación GPS...');
+    setStatusMessage("QR detectado. Obteniendo ubicación GPS...");
 
-    // Pausar el escaneo en html5-qrcode mientras se procesa la petición
+    // Pausar el escaneo en html5-qrcode mientras se simula el proceso
     if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
       html5QrcodeRef.current.pause(true);
     }
 
     try {
-      // Capturar coordenadas GPS
+      // Capturar coordenadas GPS reales
       const location = await getCurrentLocation();
 
-      setStatusMessage('Validando marcaje en el servidor...');
+      setStatusMessage("Simulando validación con servidor...");
 
       const payload: AttendancePayload = { qrToken, location };
 
-      // Petición al Backend con el JWT guardado en sesión
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      // Log en consola para inspeccionar qué se enviaría
+      console.log("--- MOCK TEST: Datos de Marcaje Capturados ---");
+      console.log("Token QR:", qrToken);
+      console.log("Ubicación GPS:", location);
+      console.log("Payload Completo:", payload);
+      console.log("---------------------------------------------");
 
-      const data = await response.json();
+      // Simular tiempo de respuesta de red (1.5 segundos)
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Error al procesar la asistencia.');
-      }
-
-      setSuccessMessage(`¡Marcaje exitoso! Sede: ${data.dependenciaNombre || 'Confirmada'}`);
-      setStatusMessage('Registro finalizado.');
+      setSuccessMessage(
+        "¡Marcaje de prueba exitoso! Sede: Sede Central",
+      );
+      setStatusMessage("Registro finalizado.");
 
       // Detener y limpiar el hardware de la cámara
       if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
         await html5QrcodeRef.current.stop();
         html5QrcodeRef.current.clear();
       }
-
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error inesperado al registrar la asistencia.');
-      setStatusMessage('Apunta nuevamente al código QR.');
+      setErrorMessage(
+        err.message || "Error inesperado al registrar la asistencia.",
+      );
+      setStatusMessage("Apunta nuevamente al código QR.");
 
-      // Reanudar la lectura si hubo un error (ej. fuera de rango de GPS)
+      // Reanudar lectura si falla el GPS
       if (html5QrcodeRef.current) {
         html5QrcodeRef.current.resume();
       }
     } finally {
-      // Cooldown para evitar disparar múltiples peticiones por reintentos
       setTimeout(() => setIsProcessing(false), 2500);
     }
   };
@@ -197,7 +215,9 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({onNavigateToLogin, 
   if (isInitializing) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-900 text-white">
-        <p className="animate-pulse font-medium">Verificando sesión activa...</p>
+        <p className="animate-pulse font-medium">
+          Verificando sesión activa...
+        </p>
       </div>
     );
   }
@@ -208,18 +228,19 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({onNavigateToLogin, 
       <header className="w-full max-w-md flex justify-between items-center py-4 border-b border-slate-800">
         <div>
           <h1 className="text-lg font-bold text-white">{session?.name}</h1>
-          <p className="text-xs text-slate-400 capitalize">Empleado / {session?.role}</p>
+          <p className="text-xs text-slate-400 capitalize">
+            Empleado / {session?.role}
+          </p>
         </div>
         <button
           onClick={() => {
-            // Apagar cámara si está encendida
             if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
               html5QrcodeRef.current.stop().then(() => {
-                localStorage.removeItem('user_session');
+                localStorage.removeItem("user_session");
                 onNavigateToLogin();
               });
             } else {
-              localStorage.removeItem('user_session');
+              localStorage.removeItem("user_session");
               onNavigateToLogin();
             }
           }}
@@ -232,15 +253,15 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({onNavigateToLogin, 
       {/* Visor del Escáner QR */}
       <main className="w-full max-w-md flex flex-col items-center my-auto">
         <div className="relative w-full bg-black rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl">
-          
-          {/* Div objetivo donde html5-qrcode inyecta el video y canvas */}
           <div id={scannerContainerId} className="w-full h-full" />
 
           {/* Overlay Bloqueador durante peticiones */}
           {isProcessing && (
             <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3 p-4 text-center z-20">
               <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm font-medium text-indigo-300">{statusMessage}</p>
+              <p className="text-sm font-medium text-indigo-300">
+                {statusMessage}
+              </p>
             </div>
           )}
         </div>
@@ -267,7 +288,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({onNavigateToLogin, 
 
       {/* Footer */}
       <footer className="w-full max-w-md text-center py-4 text-xs text-slate-500">
-        Ubicación GPS obligatoria al escanear
+        Ubicación GPS obligatoria al escanear (MODO TEST)
       </footer>
     </div>
   );

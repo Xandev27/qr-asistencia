@@ -40,9 +40,9 @@ export type Role = "empleado" | "admin";
 export interface UserSession {
   id: string;
   name: string;
-  token: string;
   role: Role;
   department?: string;
+  email: string;
 }
 
 // --- DATOS DEL REPORTE (Para Recharts / Tablas) ---
