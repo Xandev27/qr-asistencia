@@ -5,6 +5,15 @@ export interface Coordinates {
   accuracy: number;
 }
 
+export interface Dependencia {
+  id: string;
+  nombre: string;
+  codigoQrToken: string;
+  ubicacion: Coordinates;
+  radioToleranciaMetros: number;
+  createdAt: string;
+}
+
 // --- PAYLOAD PARA REGISTRAR ASISTENCIA ---
 export interface AttendancePayload {
   qrToken: string;
@@ -17,7 +26,7 @@ export interface AttendanceResponse {
   success: boolean;
   message: string;
   timestamp: string;
-  type: 'IN' | 'OUT'; // Define si marca entrada o salida
+  type: "IN" | "OUT"; // Define si marca entrada o salida
   locationValid: boolean; // Si la distancia a la sede es aceptable
   employee: {
     id: string;
@@ -26,7 +35,7 @@ export interface AttendanceResponse {
 }
 
 // --- SESIÓN Y AUTENTICACIÓN ---
-export type Role = 'empleado' | 'admin';
+export type Role = "empleado" | "admin";
 
 export interface UserSession {
   id: string;
