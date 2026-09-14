@@ -12,8 +12,8 @@ interface QRScannerViewProps {
 }
 
 export const QRScannerView: React.FC<QRScannerViewProps> = ({
-  onNavigateToLogin,
-  apiEndpoint = "/api/asistencia/registrar",
+  onNavigateToLogin
+  // apiEndpoint = "/api/asistencia/registrar",
 }) => {
   // Estados de sesión
   const [session, setSession] = useState<UserSession | null>(null);
