@@ -8,21 +8,23 @@ import type {
 
 interface QRScannerViewProps {
   onNavigateToLogin: () => void;
-  apiEndpoint?: string;
+  // apiEndpoint = "/api/asistencia/registrar",
 }
 
 export const QRScannerView: React.FC<QRScannerViewProps> = ({
-  onNavigateToLogin
-  // apiEndpoint = "/api/asistencia/registrar",
+  onNavigateToLogin,
 }) => {
   // Estados de sesión
   const [session, setSession] = useState<UserSession | null>(null);
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
+  // Estado para verificar si el permiso de GPS fue otorgado
+  const [hasGpsPermission, setHasGpsPermission] = useState<boolean>(false);
+
   // Estados de retroalimentación
   const [statusMessage, setStatusMessage] = useState<string>(
-    "Inicializando cámara...",
+    "Verificando sesión y GPS...",
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -31,83 +33,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerId = "qr-reader-container";
 
-  // 1. Verificación de Sesión Activa
-  useEffect(() => {
-    const checkAuth = () => {
-      const storedSession = localStorage.getItem("user_session");
-
-      if (!storedSession) {
-        setErrorMessage("Sesión no encontrada. Redirigiendo al login...");
-        setTimeout(() => onNavigateToLogin(), 1500);
-        return;
-      }
-
-      try {
-        const parsedSession: UserSession = JSON.parse(storedSession);
-        setSession(parsedSession);
-      } catch (err) {
-        localStorage.removeItem("user_session");
-        onNavigateToLogin();
-      } finally {
-        setIsInitializing(false);
-      }
-    };
-
-    checkAuth();
-  }, [onNavigateToLogin]);
-
-  // 2. Inicialización y Limpieza de Html5Qrcode
-  useEffect(() => {
-    if (isInitializing || !session) return;
-
-    // Crear la instancia limitando el escaneo solo a códigos QR
-    const html5Qrcode = new Html5Qrcode(scannerContainerId, {
-      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-      verbose: false,
-    });
-
-    html5QrcodeRef.current = html5Qrcode;
-
-    const qrConfig = {
-      fps: 10,
-      qrbox: { width: 250, height: 250 },
-    };
-
-    // Iniciar la cámara trasera
-    html5Qrcode
-      .start(
-        { facingMode: "environment" },
-        qrConfig,
-        (decodedText) => {
-          // Callback cuando se lee un QR exitosamente
-          handleQrScanned(decodedText);
-        },
-        () => {
-          // Ignorar errores frame a frame por falta de QR en pantalla
-        },
-      )
-      .then(() => {
-        setStatusMessage("Apunta la cámara al código QR de la sede");
-      })
-      .catch((err) => {
-        console.error("Error al iniciar la cámara con html5-qrcode:", err);
-        setErrorMessage(
-          "No se pudo acceder a la cámara. Revisa los permisos de tu dispositivo.",
-        );
-      });
-
-    // Cierre limpio de la cámara al desmontar el componente
-    return () => {
-      if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
-        html5QrcodeRef.current
-          .stop()
-          .then(() => html5QrcodeRef.current?.clear())
-          .catch((err) => console.error("Error al detener la cámara:", err));
-      }
-    };
-  }, [isInitializing, session]);
-
-  // 3. Captura del GPS Nativo del Navegador
+  // Captura del GPS Nativo del Navegador (Función auxiliar reutilizable)
   const getCurrentLocation = (): Promise<Coordinates> => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
@@ -128,7 +54,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({
             case error.PERMISSION_DENIED:
               reject(
                 new Error(
-                  "Permiso GPS denegado. Es obligatorio para validar la asistencia.",
+                  "Permiso GPS denegado. Es obligatorio otorgarlo para escanear asistencia.",
                 ),
               );
               break;
@@ -155,7 +81,89 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({
     });
   };
 
-  // 4. MOCK: Procesamiento solo para Pruebas (Sin envío a Backend)
+  // 1. Verificación de Sesión Activa y Solicitud Inicial de Permiso GPS
+  useEffect(() => {
+    const initView = async () => {
+      const storedSession = localStorage.getItem("user_session");
+
+      if (!storedSession) {
+        setErrorMessage("Sesión no encontrada. Redirigiendo al login...");
+        setTimeout(() => onNavigateToLogin(), 1500);
+        return;
+      }
+
+      try {
+        const parsedSession: UserSession = JSON.parse(storedSession);
+        setSession(parsedSession);
+
+        // Solicitar explícitamente el permiso del GPS desde la carga del componente
+        setStatusMessage("Solicitando permisos de ubicación GPS...");
+        await getCurrentLocation();
+        setHasGpsPermission(true);
+      } catch (err: any) {
+        setHasGpsPermission(false);
+        setErrorMessage(
+          err.message || "Es necesario dar permisos de ubicación para continuar.",
+        );
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    initView();
+  }, [onNavigateToLogin]);
+
+  // 2. Inicialización y Limpieza de Html5Qrcode (Solo arranca si hay GPS)
+  useEffect(() => {
+    if (isInitializing || !session || !hasGpsPermission) return;
+
+    // Crear la instancia limitando el escaneo solo a códigos QR
+    const html5Qrcode = new Html5Qrcode(scannerContainerId, {
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+      verbose: false,
+    });
+
+    html5QrcodeRef.current = html5Qrcode;
+
+    const qrConfig = {
+      fps: 10,
+      qrbox: { width: 250, height: 250 },
+    };
+
+    // Iniciar la cámara trasera
+    html5Qrcode
+      .start(
+        { facingMode: "environment" },
+        qrConfig,
+        (decodedText) => {
+          handleQrScanned(decodedText);
+        },
+        () => {
+          // Ignorar errores frame a frame por falta de QR en pantalla
+        },
+      )
+      .then(() => {
+        setStatusMessage("Apunta la cámara al código QR de la sede");
+      })
+      .catch((err) => {
+        console.error("Error al iniciar la cámara con html5-qrcode:", err);
+        setErrorMessage(
+          "No se pudo acceder a la cámara. Revisa los permisos de tu dispositivo.",
+        );
+      });
+
+    // Cierre limpio de la cámara al desmontar el componente
+    return () => {
+      if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
+        html5QrcodeRef.current
+          .stop()
+          .then(() => html5QrcodeRef.current?.clear())
+          .catch((err) => console.error("Error al detener la cámara:", err));
+      }
+    };
+  }, [isInitializing, session, hasGpsPermission]);
+
+  // 3. MOCK: Procesamiento solo para Pruebas (Sin envío a Backend)
   const handleQrScanned = async (qrToken: string) => {
     if (isProcessing) return;
 
@@ -169,21 +177,20 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({
     }
 
     try {
-      // Capturar coordenadas GPS reales
+      // Re-obtener coordenadas GPS en el momento exacto del escaneo
       const location = await getCurrentLocation();
 
       setStatusMessage("Simulando validación con servidor...");
 
       const payload: AttendancePayload = { qrToken, location };
 
-      // Log en consola para inspeccionar qué se enviaría
       console.log("--- MOCK TEST: Datos de Marcaje Capturados ---");
       console.log("Token QR:", qrToken);
       console.log("Ubicación GPS:", location);
       console.log("Payload Completo:", payload);
       console.log("---------------------------------------------");
 
-      // Simular tiempo de respuesta de red (1.5 segundos)
+      // Simular latencia de red (1.5 segundos)
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       setSuccessMessage(
@@ -191,7 +198,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({
       );
       setStatusMessage("Registro finalizado.");
 
-      // Detener y limpiar el hardware de la cámara
+      // Detener y limpiar la cámara tras el marcaje exitoso
       if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
         await html5QrcodeRef.current.stop();
         html5QrcodeRef.current.clear();
@@ -202,7 +209,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({
       );
       setStatusMessage("Apunta nuevamente al código QR.");
 
-      // Reanudar lectura si falla el GPS
+      // Reanudar lectura si falla el GPS en el momento del escaneo
       if (html5QrcodeRef.current) {
         html5QrcodeRef.current.resume();
       }
@@ -211,12 +218,27 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({
     }
   };
 
-  // Estado de carga inicial mientras valida sesión
+  // Función para reintentar la solicitud de permiso GPS en caso de rechazo manual
+  const retryGpsPermission = async () => {
+    setErrorMessage(null);
+    setStatusMessage("Solicitando permisos de ubicación GPS...");
+    try {
+      await getCurrentLocation();
+      setHasGpsPermission(true);
+    } catch (err: any) {
+      setHasGpsPermission(false);
+      setErrorMessage(
+        err.message || "Es necesario dar permisos de ubicación para continuar.",
+      );
+    }
+  };
+
+  // Estado de carga inicial mientras valida sesión y solicita GPS
   if (isInitializing) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-900 text-white">
-        <p className="animate-pulse font-medium">
-          Verificando sesión activa...
+        <p className="animate-pulse font-medium text-center px-4">
+          Cargando entorno y verificando permisos GPS...
         </p>
       </div>
     );
@@ -252,8 +274,24 @@ export const QRScannerView: React.FC<QRScannerViewProps> = ({
 
       {/* Visor del Escáner QR */}
       <main className="w-full max-w-md flex flex-col items-center my-auto">
-        <div className="relative w-full bg-black rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl">
+        <div className="relative w-full bg-black rounded-2xl overflow-hidden border-2 border-slate-700 shadow-2xl min-h-[300px] flex items-center justify-center">
           <div id={scannerContainerId} className="w-full h-full" />
+
+          {/* Bloqueo si no se ha concedido el permiso GPS */}
+          {!hasGpsPermission && !isInitializing && (
+            <div className="absolute inset-0 bg-slate-950 p-6 flex flex-col items-center justify-center text-center gap-4 z-10">
+              <span className="text-4xl">📍</span>
+              <p className="text-sm text-slate-300">
+                Se requiere acceso a la ubicación GPS para activar la cámara y registrar tu asistencia.
+              </p>
+              <button
+                onClick={retryGpsPermission}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-4 py-2.5 rounded-xl transition shadow-lg"
+              >
+                Conceder Permiso GPS
+              </button>
+            </div>
+          )}
 
           {/* Overlay Bloqueador durante peticiones */}
           {isProcessing && (
