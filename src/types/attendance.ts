@@ -18,7 +18,7 @@ export interface Dependencia {
 export interface AttendancePayload {
   qrToken: string;
   location: Coordinates;
-  timestamp?: string; // Opcional si se valida la hora del cliente vs servidor
+  timestamp?: string;
 }
 
 // --- RESPUESTA DEL BACKEND TRAS ESCANEAR ---
@@ -35,7 +35,7 @@ export interface AttendanceResponse {
 }
 
 // --- SESIÓN Y AUTENTICACIÓN ---
-export type Role = "empleado" | "admin";
+export type Role = "employee" | "admin" | "superadmin";
 
 export interface UserSession {
   id: string;

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   BarChart3,
   Building2,
@@ -12,8 +12,11 @@ import {
   ShieldAlert,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Users,
-  ClipboardList
+  ClipboardList,
+  LineChart,
+  CalendarCheck,
 } from "lucide-react";
 import type { UserSession } from "../types/attendance";
 
@@ -30,7 +33,19 @@ export default function SidebarLayout({
 }: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
+
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Mantener el menú de asistencias desplegado si estamos en alguna de sus subrutas
+  const isAttendanceActive = location.pathname.startsWith("/admin/asistencias");
+
+  useEffect(() => {
+    if (isAttendanceActive && !isCollapsed) {
+      setIsAttendanceOpen(true);
+    }
+  }, [location.pathname, isCollapsed, isAttendanceActive]);
 
   const handleLogout = () => {
     onLogout();
@@ -43,6 +58,13 @@ export default function SidebarLayout({
         ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
         : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
     } ${isCollapsed ? "justify-center px-2" : ""}`;
+
+  const subNavLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
+      isActive
+        ? "bg-indigo-600/20 text-indigo-400 font-semibold"
+        : "text-slate-400 hover:bg-slate-800/40 hover:text-slate-200"
+    }`;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
@@ -87,9 +109,11 @@ export default function SidebarLayout({
           {/* LOGO & BOTÓN COLAPSA (Escritorio) */}
           <div className="p-4 border-b border-slate-800 flex items-center justify-between h-16">
             <div
-              className={`flex items-center gap-3 overflow-hidden ${isCollapsed ? "justify-center w-full" : ""}`}
+              className={`flex items-center gap-3 overflow-hidden ${
+                isCollapsed ? "justify-center w-full" : ""
+              }`}
             >
-              <div className="bg-indigo-600 text-white p-2 rounded-xl shadow-lg ñshrink-0">
+              <div className="bg-indigo-600 text-white p-2 rounded-xl shadow-lg shrink-0">
                 <ShieldAlert className="h-5 w-5" />
               </div>
               {!isCollapsed && (
@@ -106,7 +130,10 @@ export default function SidebarLayout({
 
             {/* Toggle Colapsar (Solo Desktop) */}
             <button
-              onClick={() => setIsCollapsed(!isCollapsed)}
+              onClick={() => {
+                setIsCollapsed(!isCollapsed);
+                if (!isCollapsed) setIsAttendanceOpen(false);
+              }}
               className="hidden md:flex p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
               title={isCollapsed ? "Expandir" : "Contraer"}
             >
@@ -127,18 +154,60 @@ export default function SidebarLayout({
               title="Métricas"
             >
               <BarChart3 className="h-5 w-5 shrink-0" />
-              {!isCollapsed && <span>Métricas</span>}
+              {!isCollapsed && <span>Panel principal</span>}
             </NavLink>
 
-            <NavLink
-              to="/admin/asistencias"
-              onClick={() => setIsMobileOpen(false)}
-              className={navLinkClass}
-              title="Asistencias y Auditoría"
-            >
-              <ClipboardList className="h-5 w-5 shrink-0" />
-              {!isCollapsed && <span>Asistencias</span>}
-            </NavLink>
+            {/* OPCIÓN CON DESPLEGABLE: ASISTENCIAS */}
+            <div>
+              <button
+                onClick={() => {
+                  if (isCollapsed) setIsCollapsed(false);
+                  setIsAttendanceOpen(!isAttendanceOpen);
+                }}
+                title="Asistencias y Reportes"
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  isAttendanceActive
+                    ? "bg-slate-800 text-indigo-400 font-semibold"
+                    : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                } ${isCollapsed ? "justify-center px-2" : ""}`}
+              >
+                <div className="flex items-center gap-3">
+                  <ClipboardList className="h-5 w-5 shrink-0" />
+                  {!isCollapsed && <span>Asistencias</span>}
+                </div>
+                {!isCollapsed && (
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      isAttendanceOpen ? "rotate-180 text-indigo-400" : ""
+                    }`}
+                  />
+                )}
+              </button>
+
+              {/* SUBMENÚ */}
+              {isAttendanceOpen && !isCollapsed && (
+                <div className="mt-1 ml-4 pl-3 border-l border-slate-800 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <NavLink
+                    to="/admin/asistencias"
+                    end
+                    onClick={() => setIsMobileOpen(false)}
+                    className={subNavLinkClass}
+                  >
+                    <CalendarCheck className="h-3.5 w-3.5 shrink-0" />
+                    <span>Control Diario</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/admin/asistencias/informe-promedios"
+                    onClick={() => setIsMobileOpen(false)}
+                    className={subNavLinkClass}
+                  >
+                    <LineChart className="h-3.5 w-3.5 shrink-0" />
+                    <span>Informe de Promedios</span>
+                  </NavLink>
+                </div>
+              )}
+            </div>
 
             <NavLink
               to="/admin/dependencias"
@@ -150,7 +219,6 @@ export default function SidebarLayout({
               {!isCollapsed && <span>Dependencias</span>}
             </NavLink>
 
-
             <NavLink
               to="/admin/empleados"
               onClick={() => setIsMobileOpen(false)}
@@ -160,7 +228,7 @@ export default function SidebarLayout({
               <Users className="h-5 w-5 shrink-0" />
               {!isCollapsed && <span>Personal</span>}
             </NavLink>
-            
+
             <NavLink
               to="/admin/qr-cards"
               onClick={() => setIsMobileOpen(false)}
@@ -186,7 +254,9 @@ export default function SidebarLayout({
         {/* PERFIL & LOGOUT */}
         <div className="p-3 border-t border-slate-800 bg-slate-900/50">
           <div
-            className={`flex items-center gap-3 p-2 rounded-xl bg-slate-800/40 ${isCollapsed ? "justify-center" : "justify-between"}`}
+            className={`flex items-center gap-3 p-2 rounded-xl bg-slate-800/40 ${
+              isCollapsed ? "justify-center" : "justify-between"
+            }`}
           >
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-semibold text-xs shrink-0">
