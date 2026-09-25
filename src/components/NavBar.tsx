@@ -269,7 +269,7 @@ export default function SidebarLayout({
               {!isCollapsed && (
                 <div className="overflow-hidden whitespace-nowrap">
                   <p className="text-xs font-semibold text-white truncate">
-                    {user?.name}
+                    Javier Alexander.dev
                   </p>
                   <p className="text-[10px] text-slate-400 capitalize truncate">
                     {user?.role}
@@ -282,7 +282,7 @@ export default function SidebarLayout({
               <button
                 onClick={handleLogout}
                 title="Cerrar Sesión"
-                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors flex-shrink-0"
+                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors shrink-0"
               >
                 <LogOut className="h-4 w-4" />
               </button>

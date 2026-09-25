@@ -79,14 +79,14 @@ export default function Login() {
 
         {isPendingAttendance && (
           <div className="bg-amber-500/10 border border-amber-500/30 p-3.5 rounded-2xl flex items-center gap-3 text-amber-300 text-xs animate-pulse">
-            <QrCode className="h-5 w-5 flex-shrink-0 text-amber-400" />
+            <QrCode className="h-5 w-5 shrink-0 text-amber-400" />
             <span>Inicia sesión para completar tu marcaje de asistencia pendiente.</span>
           </div>
         )}
 
         {errorMsg && (
           <div className="bg-rose-500/10 border border-rose-500/30 p-3.5 rounded-2xl flex items-center gap-3 text-rose-300 text-xs">
-            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+            <AlertCircle className="h-5 w-5 shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
@@ -98,6 +98,7 @@ export default function Login() {
             disabled={googleLoading || loading}
             className="w-full bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-white font-medium py-3 rounded-xl transition-all flex items-center justify-center gap-3 text-sm disabled:opacity-50"
           >
+            <img src="https://www.svgrepo.com/show/355037/google.svg" className="w-5 h-5" alt="Google" />
             {googleLoading ? <Loader2 className="h-4 w-4 animate-spin text-indigo-400" /> : "Continuar con Google"}
           </button>
         </div>

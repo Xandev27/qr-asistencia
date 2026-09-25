@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   Clock,
   Building2,
-  RefreshCw,
 } from "lucide-react";
 import { getHaversineDistance } from "../utils/geo";
 
@@ -196,7 +195,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = () => {
               formatAttendanceResponse(branchName, record.timestamp, 0),
             );
             setIsInitializing(false);
-            return; // Corta la ejecución para NO activar la cámara
+            return;
           }
         }
 
@@ -287,11 +286,11 @@ export const QRScannerView: React.FC<QRScannerViewProps> = () => {
     try {
       const cleanToken = extractToken(rawQrText);
 
-      // 1. Coordenadas GPS
+      // Coordenadas GPS
       const location = await getCurrentLocation();
       setStatusMessage("Verificando datos de la sede...");
 
-      // 2. Datos de la sede
+      // Datos de la sede
       const { data: branch, error: branchError } = await supabase
         .from("dependencias")
         .select("id, name, latitude, longitude, radius_meters")
@@ -413,7 +412,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = () => {
       {/* Visor / Resultado de Éxito */}
       <main className="w-full max-w-md flex flex-col items-center my-auto">
         {!successData ? (
-          <div className="relative w-full bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl min-h-[300px] flex items-center justify-center">
+          <div className="relative w-full bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl min-h-75 flex items-center justify-center">
             <div id={scannerContainerId} className="w-full h-full" />
 
             {/* Sin Permiso GPS */}
@@ -426,7 +425,7 @@ export const QRScannerView: React.FC<QRScannerViewProps> = () => {
                   <h3 className="text-sm font-semibold text-white">
                     Ubicación Requerida
                   </h3>
-                  <p className="text-xs text-slate-400 max-w-[250px]">
+                  <p className="text-xs text-slate-400 max-w-62.5">
                     Es necesario activar y permitir el acceso al GPS para
                     escanear asistencia.
                   </p>

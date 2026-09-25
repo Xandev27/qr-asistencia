@@ -2,43 +2,24 @@ import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { CheckCircle, Clock, AlertTriangle, UserX, MapPin } from "lucide-react";
 import { supabase } from "../utils/supabaseClient";
+import type { Employee } from "./AdminPersonal";
 
 const dataAsistencia = [
-
   { name: "Puntuales", value: 85, color: "#10B981" },
 
   { name: "Tardanzas", value: 10, color: "#F59E0B" },
 
   { name: "Ausentes", value: 5, color: "#EF4444" },
-
 ];
 
-const sinMarcarData = [
-  {
-    id: 101,
-    nombre: "Pedro Martínez",
-    departamento: "Soporte TI",
-    horario: "08:00 AM",
-  },
-  {
-    id: 102,
-    nombre: "Elena Blanco",
-    departamento: "Recursos Humanos",
-    horario: "08:00 AM",
-  },
-  {
-    id: 103,
-    nombre: "Roberto Gómez",
-    departamento: "Redes",
-    horario: "08:30 AM",
-  },
-  {
-    id: 104,
-    nombre: "Sofía Díaz",
-    departamento: "Desarrollo",
-    horario: "08:00 AM",
-  },
-];
+export interface FormattedData {
+  id: string;
+  empleado: string;
+  hora: string;
+  sede: string;
+  gpsOk: boolean;
+  estado: "Puntual" | "Tardanza";
+}
 
 export const AdminDashboard = () => {
   const [filtroSede, setFiltroSede] = useState("todas");
@@ -46,7 +27,21 @@ export const AdminDashboard = () => {
     "recientes" | "sinMarcar" | "alertas"
   >("recientes");
 
-  const [marcajesRecientes, setMarcajesRecientes] = useState([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [marcajesRecientes, setMarcajesRecientes] = useState<FormattedData[]>([],);
+
+  const fetchEmployees = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .neq("role", "superadmin");
+
+      if (!error) setEmployees(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const fetchAssistData = async () => {
     try {
@@ -60,6 +55,7 @@ export const AdminDashboard = () => {
         longitude,
         ubicacion_valida,
         distanceMeters,
+        user_id,
         user:user_id (
           name,
           email
@@ -72,8 +68,7 @@ export const AdminDashboard = () => {
         .order("timestamp", { ascending: false });
 
       if (!error && data) {
-        // Transformar los registros mapeados para la vista
-        const formattedData = data.map((item: any) => {
+        const formattedData: FormattedData[] = data.map((item: any) => {
           const dateObj = new Date(item.timestamp);
 
           // Criterio de hora para Puntualidad (Ejemplo: Entrada límite 8:15 AM)
@@ -83,6 +78,7 @@ export const AdminDashboard = () => {
 
           return {
             id: item.id,
+            user_id: item.user_id,
             empleado:
               item.user?.name || item.user?.email || "Usuario Desconocido",
             hora: dateObj.toLocaleTimeString([], {
@@ -104,8 +100,14 @@ export const AdminDashboard = () => {
   };
 
   useEffect(() => {
+    fetchEmployees();
     fetchAssistData();
   }, []);
+
+  const empleadosSinMarcar = employees.filter((emp : Employee) => !marcajesRecientes.some((m: any) => m.user_id === emp.id))
+  const totalAusentes = empleadosSinMarcar.length
+
+  console.log(empleadosSinMarcar)
 
   const totalPresentes = marcajesRecientes.length;
   const totalTardanzas = marcajesRecientes.filter(
@@ -148,7 +150,9 @@ export const AdminDashboard = () => {
             <p className="text-sm font-medium text-gray-500">Presentes Hoy</p>
             <h3 className="text-2xl font-bold text-gray-800 mt-1">
               {totalPresentes}{" "}
-              <span className="text-xs text-gray-400 font-normal">/ 140</span>
+              <span className="text-xs text-gray-400 font-normal">
+                / {employees.length}
+              </span>
             </h3>
           </div>
           <div className="bg-emerald-50 p-3 rounded-lg text-emerald-600">
@@ -159,7 +163,9 @@ export const AdminDashboard = () => {
         <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-500">Tardanzas</p>
-            <h3 className="text-2xl font-bold text-amber-600 mt-1">{totalTardanzas}</h3>
+            <h3 className="text-2xl font-bold text-amber-600 mt-1">
+              {totalTardanzas}
+            </h3>
           </div>
           <div className="bg-amber-50 p-3 rounded-lg text-amber-600">
             <Clock className="w-6 h-6" />
@@ -171,7 +177,7 @@ export const AdminDashboard = () => {
             <p className="text-sm font-medium text-gray-500">
               Sin Marcar (Ausentes)
             </p>
-            <h3 className="text-2xl font-bold text-rose-600 mt-1">4</h3>
+            <h3 className="text-2xl font-bold text-rose-600 mt-1">{totalAusentes}</h3>
           </div>
           <div className="bg-rose-50 p-3 rounded-lg text-rose-600">
             <UserX className="w-6 h-6" />
@@ -183,7 +189,9 @@ export const AdminDashboard = () => {
             <p className="text-sm font-medium text-gray-500">
               Fuera de Rango (GPS)
             </p>
-            <h3 className="text-2xl font-bold text-orange-600 mt-1">{totalFueraRango}</h3>
+            <h3 className="text-2xl font-bold text-orange-600 mt-1">
+              {totalFueraRango}
+            </h3>
           </div>
           <div className="bg-orange-50 p-3 rounded-lg text-orange-600">
             <AlertTriangle className="w-6 h-6" />
@@ -258,7 +266,7 @@ export const AdminDashboard = () => {
               >
                 Sin Marcar
                 <span className="bg-rose-100 text-rose-700 text-xs px-1.5 py-0.5 rounded-full font-bold">
-                  {sinMarcarData.length}
+                  { totalAusentes }
                 </span>
               </button>
             </div>
@@ -272,7 +280,7 @@ export const AdminDashboard = () => {
 
           {/* VISTA 1: Últimos Marcajes */}
           {tabActiva === "recientes" && (
-            <div className="overflow-x-auto max-h-[300px]">
+            <div className="overflow-x-auto max-h-75">
               <table className="w-full text-left text-sm text-gray-600">
                 <thead className="bg-gray-50 text-xs text-gray-400 uppercase sticky top-0">
                   <tr>
@@ -330,7 +338,7 @@ export const AdminDashboard = () => {
 
           {/* VISTA 2: Empleados Sin Marcar */}
           {tabActiva === "sinMarcar" && (
-            <div className="overflow-x-auto max-h-[300px]">
+            <div className="overflow-x-auto max-h-75">
               <table className="w-full text-left text-sm text-gray-600">
                 <thead className="bg-gray-50 text-xs text-gray-400 uppercase sticky top-0">
                   <tr>
@@ -340,17 +348,17 @@ export const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {sinMarcarData.map((emp) => (
+                  {empleadosSinMarcar.map((emp : Employee) => (
                     <tr
                       key={emp.id}
                       className="hover:bg-gray-50/80 transition-colors"
                     >
                       <td className="py-3 px-3 font-medium text-gray-800">
-                        {emp.nombre}
+                        {emp.email}
                       </td>
-                      <td className="py-3 px-3">{emp.departamento}</td>
+                      <td className="py-3 px-3">Informatica</td>
                       <td className="py-3 px-3 text-rose-600 font-medium">
-                        {emp.horario}
+                        8:00 AM
                       </td>
                     </tr>
                   ))}

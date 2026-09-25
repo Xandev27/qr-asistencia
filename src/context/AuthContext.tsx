@@ -6,6 +6,8 @@ import type { UserSession, Role } from "../types/attendance";
 interface AuthContextType {
   user: UserSession | null;
   loading: boolean;
+  needsProfileCompletion: boolean;
+  updateUserProfile: (firstName: string, lastName: string) => void;
   logout: () => Promise<void>;
 }
 
@@ -14,13 +16,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserSession | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [needsProfileCompletion, setNeedsProfileCompletion] = useState<boolean>(false);
 
-  // Usamos useCallback para mantener estable la referencia de la función
-  const fetchUserProfile = useCallback(async (userId: string, email: string): Promise<UserSession | null> => {
+  // Consulta extendida para traer 'first_name' y 'last_name'
+  const fetchUserProfile = useCallback(async (userId: string, email: string) => {
     try {
       const { data: profile, error } = await supabase
         .from("users")
-        .select("role, name")
+        .select("role, name, first_name, last_name")
         .eq("id", userId)
         .maybeSingle();
 
@@ -28,11 +31,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Error al obtener perfil de usuario:", error.message);
       }
 
+      // Si no tiene 'first_name' o 'last_name', marcar que requiere completar perfil
+      const missingName = !profile?.first_name || !profile?.last_name;
+
       return {
-        id: userId,
-        email,
-        role: (profile?.role as Role) || "employee",
-        name: profile?.name || "Usuario",
+        session: {
+          id: userId,
+          email,
+          role: (profile?.role as Role) || "employee",
+          name: profile?.name || "Usuario",
+        } as UserSession,
+        missingName,
       };
     } catch (err) {
       console.error("Error inesperado obteniendo perfil:", err);
@@ -43,19 +52,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    // Supabase maneja la carga inicial mediante el evento INITIAL_SESSION en onAuthStateChange
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        const userSession = await fetchUserProfile(session.user.id, session.user.email || "");
-        
-        // Evitamos actualizar el estado si el componente se desmontó a mitad de petición
-        if (isMounted) {
-          setUser(userSession);
+        const result = await fetchUserProfile(session.user.id, session.user.email || "");
+
+        if (isMounted && result) {
+          setUser(result.session);
+          setNeedsProfileCompletion(result.missingName);
           setLoading(false);
         }
       } else {
         if (isMounted) {
           setUser(null);
+          setNeedsProfileCompletion(false);
           setLoading(false);
         }
       }
@@ -67,12 +76,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchUserProfile]);
 
+  // Método para actualizar el estado tras guardar en el modal
+  const updateUserProfile = (firstName: string, lastName: string) => {
+    if (user) {
+      setUser({
+        ...user,
+        name: `${firstName} ${lastName}`,
+      });
+      setNeedsProfileCompletion(false);
+    }
+  };
+
   const logout = async () => {
     try {
       setLoading(true);
       localStorage.removeItem("pending_qr_token");
       await supabase.auth.signOut();
-      // No hace falta setUser(null) aquí; el listener de onAuthStateChange lo gestiona automáticamente
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
     } finally {
@@ -81,7 +100,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        needsProfileCompletion,
+        updateUserProfile,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
