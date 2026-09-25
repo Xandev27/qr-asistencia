@@ -27,21 +27,18 @@ export interface Employee {
   last_name: string;
   email: string;
   dependencia_id: string;
-  position: string;
-  status: EmployeeStatus;
+  position?: string;
+  status?: EmployeeStatus;
 }
 
-const DEPARTMENTS = [
-  "Ingeniería",
-  "Ventas",
-  "Recursos Humanos",
-  "Administración",
-  "Soporte TI",
-  "Marketing",
-];
+export interface Dependencia {
+  id: string;
+  name: string;
+}
 
 export default function EmployeeManagement() {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Dependencia[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -59,14 +56,13 @@ export default function EmployeeManagement() {
     first_name: "",
     last_name: "",
     email: "",
-    dependencia_id: "Ingeniería",
+    dependencia_id: "",
     position: "",
     status: "Activo",
   });
 
   // Fetch de empleados desde Supabase
   const fetchEmployees = async () => {
-    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("users")
@@ -78,20 +74,47 @@ export default function EmployeeManagement() {
       setEmployees(data || []);
     } catch (error) {
       console.error("Error al cargar empleados:", error);
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  // Fetch de dependencias / departamentos desde Supabase
+  const fetchDepartments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("dependencias")
+        .select("id, name")
+        .order("name", { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setDepartments(data);
+      }
+    } catch (error) {
+      console.error("Error al cargar dependencias:", error);
     }
   };
 
   useEffect(() => {
-    fetchEmployees();
+    const initData = async () => {
+      setLoading(true);
+      await Promise.all([fetchEmployees(), fetchDepartments()]);
+      setLoading(false);
+    };
+    initData();
   }, []);
 
-  // MÉTICAS (KPIs)
+  // Mapeador auxiliar para obtener el nombre de la sede según su ID
+  const getDepartmentName = (depId: string) => {
+    const dep = departments.find((d) => d.id === depId);
+    return dep ? dep.name : "Sin Asignar";
+  };
+
+  // MÉTRICAS (KPIs)
   const metrics = useMemo(() => {
     return {
       total: employees.length,
-      activos: employees.filter((e) => e.status === "Activo").length,
+      activos: employees.filter((e) => (e.status || "Activo") === "Activo").length,
       vacaciones: employees.filter((e) => e.status === "Vacaciones").length,
       licencia: employees.filter((e) => e.status === "Licencia").length,
     };
@@ -106,8 +129,10 @@ export default function EmployeeManagement() {
         (emp.email && emp.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (emp.id && emp.id.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      const matchesDept = selectedDept === "ALL" || emp.department === selectedDept;
-      const matchesStatus = selectedStatus === "ALL" || emp.status === selectedStatus;
+      const matchesDept =
+        selectedDept === "ALL" || emp.dependencia_id === selectedDept;
+      const matchesStatus =
+        selectedStatus === "ALL" || (emp.status || "Activo") === selectedStatus;
 
       return matchesSearch && matchesDept && matchesStatus;
     });
@@ -119,7 +144,7 @@ export default function EmployeeManagement() {
       first_name: "",
       last_name: "",
       email: "",
-      department: "Ingeniería",
+      dependencia_id: departments[0]?.id || "",
       position: "",
       status: "Activo",
     });
@@ -132,7 +157,7 @@ export default function EmployeeManagement() {
       first_name: emp.first_name || "",
       last_name: emp.last_name || "",
       email: emp.email || "",
-      department: emp.department || "Ingeniería",
+      dependencia_id: emp.dependencia_id || departments[0]?.id || "",
       position: emp.position || "",
       status: emp.status || "Activo",
     });
@@ -163,7 +188,7 @@ export default function EmployeeManagement() {
             last_name: formData.last_name,
             name: fullName,
             email: formData.email,
-            department: formData.department,
+            dependencia_id: formData.dependencia_id,
             position: formData.position,
             status: formData.status,
           })
@@ -178,7 +203,7 @@ export default function EmployeeManagement() {
             last_name: formData.last_name,
             name: fullName,
             email: formData.email,
-            department: formData.department,
+            dependencia_id: formData.dependencia_id,
             position: formData.position,
             status: formData.status,
             role: "employee",
@@ -225,7 +250,8 @@ export default function EmployeeManagement() {
     setSelectedStatus("ALL");
   };
 
-  const getStatusBadge = (status: EmployeeStatus) => {
+  const getStatusBadge = (status?: EmployeeStatus) => {
+    const activeStatus = status || "Activo";
     const styles = {
       Activo: "bg-emerald-50 text-emerald-700 border-emerald-200/80",
       Inactivo: "bg-slate-100 text-slate-700 border-slate-200",
@@ -236,10 +262,10 @@ export default function EmployeeManagement() {
     return (
       <span
         className={`px-2.5 py-0.5 text-xs font-semibold rounded-full border ${
-          styles[status] || styles.Inactivo
+          styles[activeStatus] || styles.Inactivo
         }`}
       >
-        {status}
+        {activeStatus}
       </span>
     );
   };
@@ -271,8 +297,12 @@ export default function EmployeeManagement() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-500 uppercase">Total Empleados</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-1">{metrics.total}</h3>
+            <p className="text-xs font-medium text-slate-500 uppercase">
+              Total Empleados
+            </p>
+            <h3 className="text-2xl font-bold text-slate-900 mt-1">
+              {metrics.total}
+            </h3>
           </div>
           <div className="p-3 bg-slate-100 text-slate-600 rounded-xl">
             <Users className="w-5 h-5" />
@@ -281,8 +311,12 @@ export default function EmployeeManagement() {
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-500 uppercase">Activos</p>
-            <h3 className="text-2xl font-bold text-emerald-600 mt-1">{metrics.activos}</h3>
+            <p className="text-xs font-medium text-slate-500 uppercase">
+              Activos
+            </p>
+            <h3 className="text-2xl font-bold text-emerald-600 mt-1">
+              {metrics.activos}
+            </h3>
           </div>
           <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
             <UserCheck className="w-5 h-5" />
@@ -291,8 +325,12 @@ export default function EmployeeManagement() {
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-500 uppercase">En Vacaciones</p>
-            <h3 className="text-2xl font-bold text-amber-600 mt-1">{metrics.vacaciones}</h3>
+            <p className="text-xs font-medium text-slate-500 uppercase">
+              En Vacaciones
+            </p>
+            <h3 className="text-2xl font-bold text-amber-600 mt-1">
+              {metrics.vacaciones}
+            </h3>
           </div>
           <div className="p-3 bg-amber-50 text-amber-600 rounded-xl">
             <Palmtree className="w-5 h-5" />
@@ -301,8 +339,12 @@ export default function EmployeeManagement() {
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-slate-500 uppercase">En Licencia</p>
-            <h3 className="text-2xl font-bold text-indigo-600 mt-1">{metrics.licencia}</h3>
+            <p className="text-xs font-medium text-slate-500 uppercase">
+              En Licencia
+            </p>
+            <h3 className="text-2xl font-bold text-indigo-600 mt-1">
+              {metrics.licencia}
+            </h3>
           </div>
           <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
             <Briefcase className="w-5 h-5" />
@@ -331,10 +373,10 @@ export default function EmployeeManagement() {
               onChange={(e) => setSelectedDept(e.target.value)}
               className="border border-slate-200 rounded-xl text-sm p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
             >
-              <option value="ALL">Todos los Departamentos</option>
-              {DEPARTMENTS.map((dept) => (
-                <option key={dept} value={dept}>
-                  {dept}
+              <option value="ALL">Todas las Dependencias</option>
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name}
                 </option>
               ))}
             </select>
@@ -367,7 +409,7 @@ export default function EmployeeManagement() {
               <thead className="bg-slate-50 text-slate-700 font-semibold uppercase text-xs border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-3">Empleado</th>
-                  <th className="px-6 py-3">Cargo / Depto</th>
+                  <th className="px-6 py-3">Cargo / Dependencia</th>
                   <th className="px-6 py-3">Contacto</th>
                   <th className="px-6 py-3 text-center">Estado</th>
                   <th className="px-6 py-3 text-right">Acciones</th>
@@ -390,7 +432,7 @@ export default function EmployeeManagement() {
                             <p className="font-semibold text-slate-900">
                               {emp.first_name} {emp.last_name}
                             </p>
-                            <span className="font-mono text-[10px] text-slate-400 block truncate max-w-[120px]">
+                            <span className="font-mono text-[10px] text-slate-400 block truncate max-w-30">
                               {emp.id}
                             </span>
                           </div>
@@ -401,7 +443,7 @@ export default function EmployeeManagement() {
                           {emp.position || "Sin Cargo"}
                         </p>
                         <p className="text-xs text-slate-500">
-                          {emp.department || "General"}
+                          {getDepartmentName(emp.dependencia_id)}
                         </p>
                       </td>
                       <td className="px-6 py-4 text-xs">
@@ -448,7 +490,10 @@ export default function EmployeeManagement() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                    <td
+                      colSpan={5}
+                      className="px-6 py-12 text-center text-slate-400"
+                    >
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Users className="h-8 w-8 text-slate-300" />
                         <p className="text-sm font-medium">
@@ -476,7 +521,9 @@ export default function EmployeeManagement() {
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="px-6 py-4 bg-slate-900 text-white flex justify-between items-center">
               <h3 className="text-lg font-bold">
-                {currentEmployee ? "Editar Empleado" : "Registrar Nuevo Empleado"}
+                {currentEmployee
+                  ? "Editar Empleado"
+                  : "Registrar Nuevo Empleado"}
               </h3>
               <button
                 onClick={() => setIsFormModalOpen(false)}
@@ -533,17 +580,17 @@ export default function EmployeeManagement() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">
-                    Departamento
+                    Dependencia / Sede
                   </label>
                   <select
-                    name="department"
-                    value={formData.department}
+                    name="dependencia_id"
+                    value={formData.dependencia_id}
                     onChange={handleInputChange}
                     className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                   >
-                    {DEPARTMENTS.map((dept) => (
-                      <option key={dept} value={dept}>
-                        {dept}
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>
+                        {dept.name}
                       </option>
                     ))}
                   </select>
@@ -619,7 +666,9 @@ export default function EmployeeManagement() {
               <p className="text-sm text-slate-500">
                 {currentEmployee.position || "Sin Cargo"}
               </p>
-              <div className="mt-2">{getStatusBadge(currentEmployee.status)}</div>
+              <div className="mt-2">
+                {getStatusBadge(currentEmployee.status)}
+              </div>
             </div>
 
             <div className="p-6 space-y-3 text-sm">
@@ -630,8 +679,10 @@ export default function EmployeeManagement() {
                 </span>
               </div>
               <div className="flex justify-between py-2 border-b border-slate-100">
-                <span className="text-slate-500">Departamento:</span>
-                <span className="font-medium">{currentEmployee.department}</span>
+                <span className="text-slate-500">Dependencia:</span>
+                <span className="font-medium">
+                  {getDepartmentName(currentEmployee.dependencia_id)}
+                </span>
               </div>
               <div className="flex justify-between py-2 border-b border-slate-100">
                 <span className="text-slate-500">Correo Electrónico:</span>

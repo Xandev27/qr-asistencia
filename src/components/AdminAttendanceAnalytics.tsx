@@ -299,7 +299,7 @@ export default function AttendanceReportSheet() {
                       tick={{ fontSize: 9, fill: "#94A3B8" }}
                     />
                     <Tooltip
-                      formatter={(val: number, name: string) => [
+                      formatter={(val: number) => [
                         formatMinutesToTime(val),
                         "Llegada",
                       ]}
