@@ -246,7 +246,7 @@ export default function AttendanceReportSheet() {
                   width={110}
                 />
                 <Tooltip
-                  formatter={(val: number) => [formatMinutesToTime(val), "Hora de llegada"]}
+                  formatter={(val: any) => [formatMinutesToTime(val), "Hora de llegada"]}
                   contentStyle={{ borderRadius: "8px", border: "1px solid #E2E8F0" }}
                 />
                 <Legend wrapperStyle={{ paddingTop: "10px", fontSize: "12px" }} />
@@ -299,7 +299,7 @@ export default function AttendanceReportSheet() {
                       tick={{ fontSize: 9, fill: "#94A3B8" }}
                     />
                     <Tooltip
-                      formatter={(val: number) => [
+                      formatter={(val: any) => [
                         formatMinutesToTime(val),
                         "Llegada",
                       ]}

@@ -15,7 +15,7 @@ import { supabase } from "../utils/supabaseClient";
 interface DependenciaQR {
   id: string;
   nombre: string;
-  ubicacion: string;
+  address: string;
   qrToken: string;
 }
 
@@ -33,7 +33,7 @@ export default function PrintableQRCard() {
     try {
       const { data, error } = await supabase
         .from("dependencias")
-        .select("id, name, qr_token")
+        .select("id, name, address, qr_token")
         .order("name", { ascending: true });
 
       if (error) throw error;
@@ -42,7 +42,7 @@ export default function PrintableQRCard() {
         const formatted: DependenciaQR[] = data.map((item) => ({
           id: item.id,
           nombre: item.name || "Sede Sin Nombre",
-          ubicacion: item.address || "El Tigrito",
+          address: item.address || "El Tigrito",
           qrToken: item.qr_token || `DEP_${item.id.slice(0, 8)}`,
         }));
 
@@ -189,7 +189,7 @@ export default function PrintableQRCard() {
                     {dep.nombre}
                   </h3>
                   <span className="text-xs text-slate-500 flex items-center gap-1 mt-1 truncate">
-                    <MapPin className="h-3 w-3 shrink-0" /> {dep.ubicacion}
+                    <MapPin className="h-3 w-3 shrink-0" /> {dep.address}
                   </span>
                 </div>
               </button>
@@ -247,7 +247,7 @@ export default function PrintableQRCard() {
                 </h2>
                 <p className="text-xs font-semibold text-slate-600 flex items-center justify-center gap-1">
                   <MapPin className="h-3.5 w-3.5 text-indigo-600 print:text-black" />
-                  {selectedDep.ubicacion}
+                  {selectedDep.address}
                 </p>
               </div>
 

@@ -468,7 +468,7 @@ export default function AdminAttendanceDashboard() {
                       }}
                     />
                     <Tooltip
-                      formatter={(val: number) => [
+                      formatter={(val: any) => [
                         val > 0 ? `+${val} min de retraso` : `${val} min a tiempo`,
                         "Diferencia",
                       ]}
